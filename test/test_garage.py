@@ -1,23 +1,16 @@
 import uuid
 from types import SimpleNamespace
 from unittest.mock import MagicMock
-
 import pytest
 from fastapi.testclient import TestClient
-
-from database import get_db
+from database import Base, get_db
 from main import app
 
-
 @pytest.fixture
-def client():
-    startup_handlers = list(app.router.on_startup)
-    app.router.on_startup.clear()
-    try:
-        with TestClient(app) as test_client:
-            yield test_client
-    finally:
-        app.router.on_startup[:] = startup_handlers
+def client(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(Base.metadata, "create_all", lambda *args, **kwargs: None)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture
