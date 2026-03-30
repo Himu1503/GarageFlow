@@ -6,12 +6,10 @@ from schemas.garage import CreateGarage, GetGarage
 import models
 from models.garage import Garage
 
+from routes import route_garage
 app = FastAPI()
+app.include_router(route_garage.router)
 
-
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
 
 
 def get_db():
@@ -21,22 +19,12 @@ def get_db():
     finally:
         db.close()
 
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+
 @app.get("/")
 async def HealthCheck():
     return {"message" : "Hello World"}
-
-
-@app.get("/garage", response_model=list[GetGarage])
-async def getGarage(db:Session = Depends(get_db)):
-    garage_entries = db.query(Garage).all()
-    return garage_entries
-
-@app.post("/garage", response_model=GetGarage)
-async def createGarage(garage: CreateGarage, db:Session = Depends(get_db)):
-    garage_entries = Garage(**garage.model_dump())
-    db.add(garage_entries)
-    db.commit()
-    db.refresh(garage_entries)
-    return garage_entries
 
 
