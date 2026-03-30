@@ -74,6 +74,7 @@ def test_create_customer(client, mock_db, admin_user):
             "name": "Alice",
             "phone": "9998887777",
             "email": "alice@example.com",
+            "password": "secret123",
         },
     )
 
@@ -95,6 +96,7 @@ def test_create_customer_forbidden_for_staff(client, mock_db):
                 "name": "Alice",
                 "phone": "9998887777",
                 "email": "alice@example.com",
+                "password": "secret123",
             },
         )
     finally:

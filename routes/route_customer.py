@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.customer import Customer
 from schemas.customer import CreateCustomer, GetCustomer
-from security import require_roles
+from security import hash_password, require_roles
 from models.user import User
 
 router = APIRouter(prefix="/api/v1/customer", tags=["customer"])
@@ -25,7 +25,12 @@ async def createCustomer(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles("ADMIN", "MANAGER")),
 ):
-    customer_entry = Customer(**customer.model_dump())
+    customer_entry = Customer(
+        name=customer.name,
+        phone=customer.phone,
+        email=customer.email,
+        password_hash=hash_password(customer.password),
+    )
     db.add(customer_entry)
     db.commit()
     db.refresh(customer_entry)

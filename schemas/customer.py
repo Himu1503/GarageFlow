@@ -7,6 +7,7 @@ class CreateCustomer(BaseModel):
     name: str
     phone: str
     email: EmailStr | None = Field(default=None)
+    password: str
 
 
 class GetCustomer(BaseModel):

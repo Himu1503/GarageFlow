@@ -16,9 +16,21 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterCustomer(BaseModel):
+    name: str
+    phone: str
+    email: EmailStr
+    password: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 
 class UserResponse(BaseModel):
@@ -27,5 +39,14 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: str
     garage_id: uuid.UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    phone: str
+    email: EmailStr
 
     model_config = ConfigDict(from_attributes=True)

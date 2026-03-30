@@ -10,5 +10,6 @@ class Customer(Base):
     name: Mapped[str] = mapped_column(String)
     phone: Mapped[str] = mapped_column(String)
     email: Mapped[str] = mapped_column(String, nullable=True)
+    password_hash: Mapped[str] = mapped_column(String, nullable=True)
     vehicles = relationship("Vehicle", back_populates="customer")
     bookings = relationship("Booking", back_populates="customer")
