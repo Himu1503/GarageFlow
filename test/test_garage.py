@@ -41,6 +41,7 @@ def test_get_garage(client, mock_db):
     assert response.json() == [
         {
             "id": str(garage_id),
+            "name": "Test Garage",
             "email": "test@example.com",
             "address": "123 Main St",
             "phone": "1234567890",
@@ -69,6 +70,7 @@ def test_create_garage(client, mock_db):
     assert response.status_code == 200
     assert response.json() == {
         "id": str(garage_id),
+        "name": "Test Garage",
         "email": "test@example.com",
         "address": "123 Main St",
         "phone": "1234567890",

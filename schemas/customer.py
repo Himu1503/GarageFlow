@@ -1,17 +1,18 @@
 import uuid
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-class CreateGarage(BaseModel):
-    name : str
-    email: EmailStr | None = Field(default=None)
-    address: str
+
+class CreateCustomer(BaseModel):
+    name: str
     phone: str
+    email: EmailStr | None = Field(default=None)
 
 
-class GetGarage(BaseModel):
+class GetCustomer(BaseModel):
     id: uuid.UUID
     name: str
-    email: EmailStr
-    address: str
     phone: str
+    email: EmailStr | None
+
     model_config = ConfigDict(from_attributes=True)

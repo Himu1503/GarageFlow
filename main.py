@@ -1,14 +1,17 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from sqlalchemy.orm import Session
-from database import Base, SessionLocal, engine
-from fastapi import Depends
-from schemas.garage import CreateGarage, GetGarage
+import os
+
+from fastapi.middleware.cors import CORSMiddleware
+from database import Base, engine
 import models
-from models.garage import Garage
 
+from routes import route_booking
+from routes import route_auth
+from routes import route_customer
 from routes import route_garage
-
+from routes import route_user
+from routes import route_vehicle
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -17,19 +20,27 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+cors_origins = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+)
+allowed_origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(route_auth.router)
 app.include_router(route_garage.router)
-
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+app.include_router(route_booking.router)
+app.include_router(route_customer.router)
+app.include_router(route_vehicle.router)
+app.include_router(route_user.router)
 @app.get("/")
 async def HealthCheck():
     return {"message" : "Hello World"}
-
-
