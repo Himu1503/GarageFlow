@@ -10,9 +10,30 @@ services:
       DATABASE_URL: postgresql+psycopg2://admin:admin@postgres:5432/garage_db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-key-change-this-in-env-32-bytes}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+
+  celery_worker:
+    build:
+      context: .
+    container_name: garage_celery_worker
+    restart: always
+    command: celery -A celery_app.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+psycopg2://admin:admin@postgres:5432/garage_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-key-change-this-in-env-32-bytes}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   nginx:
     image: nginx:1.27-alpine
@@ -61,6 +82,13 @@ services:
 
     depends_on:
       - postgres
+
+  redis:
+    image: redis:7-alpine
+    container_name: garage_redis
+    restart: always
+    ports:
+      - "6379:6379"
 
 volumes:
   postgres_data:

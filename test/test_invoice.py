@@ -1,6 +1,4 @@
-import io
 import uuid
-from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -40,42 +38,30 @@ def staff_user():
 
 def test_get_invoice_pdf(client, mock_db, staff_user, monkeypatch: pytest.MonkeyPatch):
     invoice_id = uuid.uuid4()
-    invoice = SimpleNamespace(
-        id=invoice_id,
-        job_id=uuid.uuid4(),
-        payment_status="UNPAID",
-        issued_at=datetime(2026, 3, 30, 10, 0, 0),
-        tax=10,
-        discount=5,
-        total_amount=105,
-        items=[
-            SimpleNamespace(description="Oil Change", quantity=1, unit_price=100, total_price=100),
-        ],
-    )
+    invoice = SimpleNamespace(id=invoice_id)
     mock_db.query.return_value.filter.return_value.first.return_value = invoice
 
-    class Result:
-        err = 0
+    class QueuedTask:
+        id = "task-123"
+        status = "PENDING"
 
-    def fake_create_pdf(html: str, dest: io.BytesIO):
-        dest.write(b"%PDF-1.4 test")
-        return Result()
-
-    monkeypatch.setattr("routes.route_invoice.pisa.CreatePDF", fake_create_pdf)
-
-    response = client.get(f"/api/v1/invoice/{invoice_id}/pdf")
+    monkeypatch.setattr("routes.route_invoice.generate_invoice_pdf.delay", lambda _: QueuedTask())
+    response = client.post(f"/api/v1/invoice/{invoice_id}/pdf")
 
     assert response.status_code == 200
-    assert response.headers["content-type"] == "application/pdf"
-    assert response.headers["content-disposition"] == f'attachment; filename="invoice-{invoice_id}.pdf"'
-    assert response.content.startswith(b"%PDF-1.4")
+    assert response.json() == {
+        "task_id": "task-123",
+        "status": "PENDING",
+        "status_url": "/api/v1/invoice/pdf/tasks/task-123",
+        "download_url": "/api/v1/invoice/pdf/tasks/task-123/download",
+    }
 
 
 def test_get_invoice_pdf_not_found(client, mock_db, staff_user):
     invoice_id = uuid.uuid4()
     mock_db.query.return_value.filter.return_value.first.return_value = None
 
-    response = client.get(f"/api/v1/invoice/{invoice_id}/pdf")
+    response = client.post(f"/api/v1/invoice/{invoice_id}/pdf")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Invoice not found"}
@@ -84,6 +70,39 @@ def test_get_invoice_pdf_not_found(client, mock_db, staff_user):
 def test_get_invoice_pdf_unauthorized(client, mock_db):
     invoice_id = uuid.uuid4()
 
-    response = client.get(f"/api/v1/invoice/{invoice_id}/pdf")
+    response = client.post(f"/api/v1/invoice/{invoice_id}/pdf")
 
     assert response.status_code == 401
+
+
+def test_get_invoice_pdf_task_status(client, staff_user, monkeypatch: pytest.MonkeyPatch):
+    class FakeAsyncResult:
+        status = "SUCCESS"
+
+        def failed(self):
+            return False
+
+    monkeypatch.setattr("routes.route_invoice.AsyncResult", lambda *_args, **_kwargs: FakeAsyncResult())
+
+    response = client.get("/api/v1/invoice/pdf/tasks/task-123")
+
+    assert response.status_code == 200
+    assert response.json() == {"task_id": "task-123", "status": "SUCCESS"}
+
+
+def test_download_invoice_pdf_task(client, staff_user, monkeypatch: pytest.MonkeyPatch):
+    class FakeAsyncResult:
+        status = "SUCCESS"
+        result = {
+            "filename": "invoice-123.pdf",
+            "pdf_base64": "JVBERi0xLjQgdGVzdA==",
+        }
+
+    monkeypatch.setattr("routes.route_invoice.AsyncResult", lambda *_args, **_kwargs: FakeAsyncResult())
+
+    response = client.get("/api/v1/invoice/pdf/tasks/task-123/download")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"] == 'attachment; filename="invoice-123.pdf"'
+    assert response.content.startswith(b"%PDF-1.4")
