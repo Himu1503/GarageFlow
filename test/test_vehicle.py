@@ -130,3 +130,47 @@ def test_create_vehicle_forbidden_for_staff(client, mock_db):
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Insufficient role"}
+
+
+def test_update_vehicle(client, mock_db, admin_user):
+    vehicle_id = uuid.uuid4()
+    customer_id = uuid.uuid4()
+    vehicle = SimpleNamespace(
+        id=vehicle_id,
+        customer_id=customer_id,
+        registration_number="OLD1234",
+        make="Old",
+        model="Old",
+        year=2010,
+    )
+    mock_db.get.side_effect = lambda model, item_id: (
+        vehicle if item_id == vehicle_id else SimpleNamespace(id=customer_id) if item_id == customer_id else None
+    )
+
+    response = client.put(
+        f"/api/v1/vehicle/{vehicle_id}",
+        json={
+            "customer_id": str(customer_id),
+            "registration_number": "NEW1234",
+            "make": "BMW",
+            "model": "X1",
+            "year": 2020,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(vehicle_id),
+        "customer_id": str(customer_id),
+        "registration_number": "NEW1234",
+    }
+
+
+def test_delete_vehicle(client, mock_db, admin_user):
+    vehicle_id = uuid.uuid4()
+    mock_db.get.return_value = SimpleNamespace(id=vehicle_id)
+
+    response = client.delete(f"/api/v1/vehicle/{vehicle_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"detail": "Vehicle deleted"}

@@ -75,3 +75,44 @@ def test_create_garage(client, mock_db):
         "address": "123 Main St",
         "phone": "1234567890",
     }
+
+
+def test_update_garage(client, mock_db):
+    garage_id = uuid.uuid4()
+    garage = SimpleNamespace(
+        id=garage_id,
+        name="Old Garage",
+        email="old@example.com",
+        address="Old Address",
+        phone="0000000000",
+    )
+    mock_db.get.return_value = garage
+
+    response = client.put(
+        f"/api/v1/garage/{garage_id}",
+        json={
+            "name": "New Garage",
+            "email": "new@example.com",
+            "address": "New Address",
+            "phone": "1111111111",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(garage_id),
+        "name": "New Garage",
+        "email": "new@example.com",
+        "address": "New Address",
+        "phone": "1111111111",
+    }
+
+
+def test_delete_garage(client, mock_db):
+    garage_id = uuid.uuid4()
+    mock_db.get.return_value = SimpleNamespace(id=garage_id)
+
+    response = client.delete(f"/api/v1/garage/{garage_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"detail": "Garage deleted"}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+import uuid
 
 from database import get_db
 from models.booking import Booking
@@ -53,3 +54,61 @@ async def createBooking(
         raise HTTPException(status_code=400, detail="invalid booking data")
     db.refresh(booking_entry)
     return booking_entry
+
+
+@router.put("/{booking_id}", response_model=GetBooking)
+async def updateBooking(
+    booking_id: uuid.UUID,
+    booking: CreateBooking,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN", "MANAGER")),
+):
+    booking_entry = db.get(Booking, booking_id)
+    if booking_entry is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    garage = db.get(Garage, booking.garage_id)
+    if garage is None:
+        raise HTTPException(status_code=400, detail="garage_id does not exist")
+
+    customer = db.get(Customer, booking.customer_id)
+    if customer is None:
+        raise HTTPException(status_code=400, detail="customer_id does not exist")
+
+    vehicle = db.get(Vehicle, booking.vehicle_id)
+    if vehicle is None:
+        raise HTTPException(status_code=400, detail="vehicle_id does not exist")
+
+    if vehicle.customer_id != booking.customer_id:
+        raise HTTPException(status_code=400, detail="vehicle does not belong to customer_id")
+
+    booking_entry.garage_id = booking.garage_id
+    booking_entry.customer_id = booking.customer_id
+    booking_entry.vehicle_id = booking.vehicle_id
+    booking_entry.service_type = booking.service_type
+    booking_entry.booking_date = booking.booking_date
+    booking_entry.time_slot = booking.time_slot
+    booking_entry.status = booking.status
+    booking_entry.notes = booking.notes
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="invalid booking data")
+    db.refresh(booking_entry)
+    return booking_entry
+
+
+@router.delete("/{booking_id}")
+async def deleteBooking(
+    booking_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN", "MANAGER")),
+):
+    booking_entry = db.get(Booking, booking_id)
+    if booking_entry is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    db.delete(booking_entry)
+    db.commit()
+    return {"detail": "Booking deleted"}

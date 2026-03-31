@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -35,3 +37,38 @@ async def createCustomer(
     db.commit()
     db.refresh(customer_entry)
     return customer_entry
+
+
+@router.put("/{customer_id}", response_model=GetCustomer)
+async def updateCustomer(
+    customer_id: uuid.UUID,
+    customer: CreateCustomer,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN", "MANAGER")),
+):
+    customer_entry = db.get(Customer, customer_id)
+    if customer_entry is None:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer_entry.name = customer.name
+    customer_entry.phone = customer.phone
+    customer_entry.email = customer.email
+    customer_entry.password_hash = hash_password(customer.password)
+    db.commit()
+    db.refresh(customer_entry)
+    return customer_entry
+
+
+@router.delete("/{customer_id}")
+async def deleteCustomer(
+    customer_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("ADMIN", "MANAGER")),
+):
+    customer_entry = db.get(Customer, customer_id)
+    if customer_entry is None:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    db.delete(customer_entry)
+    db.commit()
+    return {"detail": "Customer deleted"}

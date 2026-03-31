@@ -108,3 +108,50 @@ def test_get_user_forbidden_for_staff(client, mock_db):
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Insufficient role"}
+
+
+def test_update_user(client, mock_db, admin_user):
+    user_id = uuid.uuid4()
+    garage_id = uuid.uuid4()
+    user = SimpleNamespace(
+        id=user_id,
+        name="Old",
+        email="old@example.com",
+        role="STAFF",
+        garage_id=garage_id,
+        password_hash="hash",
+    )
+    mock_db.get.side_effect = lambda model, item_id: (
+        user if model.__name__ == "User" and item_id == user_id else SimpleNamespace(id=garage_id)
+    )
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+
+    response = client.put(
+        f"/api/v1/user/{user_id}",
+        json={
+            "name": "Updated User",
+            "email": "updated@example.com",
+            "password": "newpass123",
+            "role": "MANAGER",
+            "garage_id": str(garage_id),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(user_id),
+        "name": "Updated User",
+        "email": "updated@example.com",
+        "role": "MANAGER",
+        "garage_id": str(garage_id),
+    }
+
+
+def test_delete_user(client, mock_db, admin_user):
+    user_id = uuid.uuid4()
+    mock_db.get.return_value = SimpleNamespace(id=user_id)
+
+    response = client.delete(f"/api/v1/user/{user_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"detail": "User deleted"}

@@ -104,3 +104,43 @@ def test_create_customer_forbidden_for_staff(client, mock_db):
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Insufficient role"}
+
+
+def test_update_customer(client, mock_db, admin_user):
+    customer_id = uuid.uuid4()
+    customer = SimpleNamespace(
+        id=customer_id,
+        name="Old Name",
+        phone="1111111111",
+        email="old@example.com",
+        password_hash="hashed",
+    )
+    mock_db.get.return_value = customer
+
+    response = client.put(
+        f"/api/v1/customer/{customer_id}",
+        json={
+            "name": "Alice Updated",
+            "phone": "9998887777",
+            "email": "alice.updated@example.com",
+            "password": "secret123",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(customer_id),
+        "name": "Alice Updated",
+        "phone": "9998887777",
+        "email": "alice.updated@example.com",
+    }
+
+
+def test_delete_customer(client, mock_db, admin_user):
+    customer_id = uuid.uuid4()
+    mock_db.get.return_value = SimpleNamespace(id=customer_id)
+
+    response = client.delete(f"/api/v1/customer/{customer_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"detail": "Customer deleted"}
