@@ -84,3 +84,12 @@ Services:
 ## Run Tests
 
 - `pytest -q`
+
+## Database Migrations (Alembic)
+
+- Create migration after model changes:
+  - `alembic revision --autogenerate -m "your message"`
+- Apply migrations:
+  - `alembic upgrade head`
+- Check current revision:
+  - `alembic current`
