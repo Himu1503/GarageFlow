@@ -2,18 +2,28 @@ import uuid
 
 from fastapi import APIRouter
 from sqlalchemy.orm import Session
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Response
 from database import get_db
 from schemas.garage import CreateGarage, GetGarage
 from models.garage import Garage
+from services.cache import delete_key, get_json, set_json
 
 router = APIRouter(prefix="/api/v1/garage", tags=["garage"])
+CACHE_KEY_GARAGE_LIST = "gf:v1:garage:list"
 
 
 @router.get("", response_model = list[GetGarage])
-async def getGarage(db:Session = Depends(get_db)):
+async def getGarage(response: Response, db: Session = Depends(get_db)):
+    cached = get_json(CACHE_KEY_GARAGE_LIST)
+    if cached is not None:
+        response.headers["X-Cache"] = "HIT"
+        return cached
+
     garage_entries = db.query(Garage).all()
-    return garage_entries
+    serialized = [GetGarage.model_validate(item).model_dump(mode="json") for item in garage_entries]
+    set_json(CACHE_KEY_GARAGE_LIST, serialized)
+    response.headers["X-Cache"] = "MISS"
+    return serialized
 
 @router.post("", response_model = GetGarage)
 async def createGarage(garage: CreateGarage, db:Session = Depends(get_db)):
@@ -21,6 +31,7 @@ async def createGarage(garage: CreateGarage, db:Session = Depends(get_db)):
     db.add(garage_entries)
     db.commit()
     db.refresh(garage_entries)
+    delete_key(CACHE_KEY_GARAGE_LIST)
     return garage_entries
 
 
@@ -36,6 +47,7 @@ async def updateGarage(garage_id: uuid.UUID, garage: CreateGarage, db: Session =
     garage_entry.phone = garage.phone
     db.commit()
     db.refresh(garage_entry)
+    delete_key(CACHE_KEY_GARAGE_LIST)
     return garage_entry
 
 
@@ -47,4 +59,5 @@ async def deleteGarage(garage_id: uuid.UUID, db: Session = Depends(get_db)):
 
     db.delete(garage_entry)
     db.commit()
+    delete_key(CACHE_KEY_GARAGE_LIST)
     return {"detail": "Garage deleted"}
